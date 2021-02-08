@@ -1,6 +1,7 @@
 const express = require('express');
 const request = require('request');
 const config = require('config');
+const axios = require('axios');
 const router = express.Router();
 const auth = require('../../middleware/auth');
 const { check, validationResult } = require('express-validator');
@@ -329,32 +330,23 @@ router.delete('/education/:edu_id', auth, async (req, res) => {
 // @desc      Get user repos from github
 // @access    Public
 
-router.get('/github/:username', (req, res) => {
+router.get('/github/:username', async (req, res) => {
   try {
     // make the request paramters for github api call
-    const options = {
-      uri: `https://api.github.com/users/${
-        req.params.username
-      }/repos?per_page=5&sort=created:asc%client_id=${config.get(
-        'githubClientId'
-      )}&client_secret=${config.get('githubSecret')}`,
-      method: 'GET',
-      headers: { 'user-agent': 'node.js' },
+    const uri = encodeURI(
+      `https://api.github.com/users/${req.params.username}/repos?per_page=5&sort=created:asc`
+    );
+    const headers = {
+      'user-agent': 'node.js',
+      Authorization: `token ${config.get('githubAccessToken')}`,
     };
-    // Send the request and how to deal with response
-    request(options, (error, response, body) => {
-      if (error) {
-        console.error(error);
-      }
-      if (response.statusCode !== 200) {
-        return res.status(404).json({ msg: 'No Github profile found' });
-      }
 
-      res.json(JSON.parse(body)); // body will be raw so need to parse it.
-    });
+    // Send the request and how to deal with response
+    const githubResponse = await axios.get(uri, { headers });
+    return res.json(githubResponse.data);
   } catch (err) {
     console.error(err.message);
-    res.status(500).send('Server Error');
+    res.status(404).json({ msg: 'No Github profile found' });
   }
 });
 
